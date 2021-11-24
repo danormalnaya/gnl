@@ -5,105 +5,132 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: lloko <lloko@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2021/11/21 00:13:10 by lloko             #+#    #+#             */
-/*   Updated: 2021/11/21 01:04:20 by lloko            ###   ########.fr       */
+/*   Created: 2021/11/14 17:41:16 by lloko             #+#    #+#             */
+/*   Updated: 2021/11/24 21:06:04 by lloko            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-// прочитать и записать в буфер
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include "get_next_line.h"
 
-size_t	ft_strlen(const char *s)
-{
-	size_t	a;
-
-	a = 0;
-	while (s[a] != '\0')
-	{
-		a++;
-	}
-	return (a);
-}
-
-char	*ft_strjoin(char const *s1, char const *s2)
-{
-	char	*answ;
-	size_t	i;
-	size_t	j;
-
-	if (!s1 || !s2)
-		return (NULL);
-	answ = (char *)malloc(ft_strlen(s1) + ft_strlen(s2) + 1);
-	if (!answ)
-		return (NULL);
-	i = 0;
-	j = 0;
-	while (s1[i])
-		answ[j++] = s1[i++];
-	i = 0;
-	while (s2[i])
-		answ[j++] = s2[i++];
-	answ[j] = '\0';
-	return (answ);
-}
-
-char	*ft_strchr(const char *s, int c)
+int	stop_if_end(char *text)
 {
 	int	i;
 
 	i = 0;
-	while (s[i])
+	if (!text)
+		return (0);
+	while (text[i])
 	{
-		if (s[i] == (unsigned char)c)
-			return ((char *)s + i);
+		if (text[i] == '\n')
+			return (1);
 		i++;
 	}
-	if (*s == '\0' && c == '\0')
-		return ((char *)s);
-	return (NULL);
+	return (0);
 }
 
-static char	readstr(int fd, char *str)
+char	*writeline_without_n(char *text)
 {
 	char	*line;
-	int		flag;
-	int		check;
-	int		BUFFER_SIZE;
+	int		i;
 
-	line = (char *)malloc(BUFFER_SIZE + 1);
+	i = 0;
+	if (!text)
+		return (NULL);
+	while (text[i] && text[i] != '\n')
+		i++;
+	line = (char *)malloc(sizeof(char) * (i + 2));
 	if (!line)
-		return (0);
-	flag = 1;
-	check = 0;
-	while (check == 0 && flag)
+		return (NULL);
+	ft_strlcpy(line, text, i + 2);
+	if (line[0] == '\0')
 	{
-		flag = read(fd, line, BUFFER_SIZE);
-		if (flag == -1)
-		{
-			free (line);
-			return (0);
-		}
-		if (ft_strchr(str, '\n') != 0)
-			check = 1;
-		line[flag] = '\0';
-		str = ft_strjoin(str, line);
+		free (line);
+		return (NULL);
 	}
-	return (str);
+	return (line);
 }
 
-int	main(void)
+char	*writeline_after_n(char *text)
 {
-	char	popytka;
+	char	*remainder;
+	int		i;
 
-	popytka = readstr(1, "text.txt");
-	printf("%d", popytka);
+	i = 0;
+	if (!text)
+		return (NULL);
+	while (text[i] && text[i] != '\n')
+		i++;
+	if (text[i] == '\0')
+	{
+		free (text);
+		return (NULL);
+	}
+	remainder = (char *)malloc(sizeof(char) * (ft_strlen(text) - i + 1));
+	if (!remainder)
+	{
+		free (text);
+		return (NULL);
+	}
+	ft_strlcpy(remainder, text + i + 1, ft_strlen(text) - i + 1);
+	free (text);
+	return (remainder);
 }
-//
 
-/* char	*get_next_line(int fd)
+char	*copyinbuf(int fd, char *text, char *buf)
 {
-	static char	*buf;
-	char		ostatok;
-} */
+	int		copy;
+	char	*temp;
+
+	copy = 1;
+	while (copy != 0 && !stop_if_end(text))
+	{
+		copy = read(fd, buf, BUFFER_SIZE);
+		if (copy < 0)
+			return (NULL);
+		buf[copy] = '\0';
+		if (!text)
+			text = ft_strdup("");
+		if (!text)
+			return (NULL);
+		temp = text;
+		text = ft_strjoin(temp, buf);
+		if (!text)
+			return (NULL);
+		free (temp);
+	}
+	return (text);
+}
+
+char	*get_next_line(int fd)
+{
+	char			*new_line;
+	char			*buf;
+	static char		*text;
+
+	if (fd < 0 || BUFFER_SIZE <= 0)
+		return (NULL);
+	buf = (char *)malloc(sizeof(char) * (BUFFER_SIZE + 1));
+	if (!buf)
+	{
+		free (buf);
+		return (NULL);
+	}
+	text = copyinbuf(fd, text, buf);
+	free (buf);
+	if (!text)
+		return (NULL);
+	new_line = writeline_without_n(text);
+	text = writeline_after_n(text);
+	return (new_line);
+}
+
+/* #include <stdio.h>
+int main()
+{
+	int fd;
+	char *line;
+	
+	fd = open("byron.txt", O_RDONLY);
+	line = get_next_line(fd);
+	printf("%s\n", line);
+}*/
